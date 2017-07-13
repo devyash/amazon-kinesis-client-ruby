@@ -13,7 +13,8 @@
 #  express or implied. See the License for the specific language governing
 #  permissions and limitations under the License.
 
-require 'aws/kinesis'
+# require 'aws/kinesis'
+require 'aws-sdk'
 require 'multi_json'
 require 'optparse'
 
@@ -24,6 +25,7 @@ class SampleProducer
     @shard_count = shard_count
     @sleep_between_puts = sleep_between_puts
     @kinesis = service
+    # aws=aws.new
   end
 
   def run(timeout=0)
@@ -39,7 +41,7 @@ class SampleProducer
     begin
       @kinesis.delete_stream(:stream_name => @stream_name)
       puts "Deleted stream #{@stream_name}"
-    rescue AWS::Kinesis::Errors::ResourceNotFoundException
+    rescue Aws::Kinesis::Errors::ResourceNotFoundException
       # nothing to do 
     end
   end
@@ -56,7 +58,7 @@ class SampleProducer
         fail "Stream #{@stream_name} has #{desc[:shards].size} shards, while requested number of shards is #{@shard_count}"
       end
       puts "Stream #{@stream_name} already exists with #{desc[:shards].size} shards"
-    rescue AWS::Kinesis::Errors::ResourceNotFoundException
+    rescue Aws::Kinesis::Errors::ResourceNotFoundException
       puts "Creating stream #{@stream_name} with #{@shard_count || 2} shards"
       @kinesis.create_stream(:stream_name => @stream_name,
                              :shard_count => @shard_count || 2)
@@ -112,6 +114,7 @@ if __FILE__ == $0
     end
     opts.on("-d SHARD_COUNT", "--shards SHARD_COUNT", "Number of shards to use when creating the stream. (Default: 2)") do |s|
       stream_name = s
+      # shard_count = s.to_i for test
     end
     opts.on("-r REGION_NAME", "--region REGION_NAME", "AWS region name (see http://tinyurl.com/cc9cap7). (Default: SDK default)") do |r|
       aws_region = r
@@ -142,7 +145,11 @@ if __FILE__ == $0
   # See http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html
   kconfig = {}
   kconfig[:region] = aws_region  if aws_region
-  kinesis = AWS::Kinesis::Client.new(kconfig)
+  # kinesis = Aws::Kinesis::Client.new(kconfig)
+  kinesis = Aws::Kinesis::Client.new(
+    region: 'us-east-1',
+    credentials: Aws::Credentials.new('KEY', 'SECRET')
+    )
 
   producer = SampleProducer.new(kinesis, stream_name, sleep_between_puts, shard_count)
   producer.run(timeout)
